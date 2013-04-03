@@ -6,7 +6,8 @@ module Hql1
   HqlCreateTable(..),
   HqlDB,
   execHqlCreateTable,       
-  execHqlSelectTable 
+  execHqlSelectTable,
+  returnColumnType 
 )
 where
 
@@ -17,7 +18,7 @@ import Database.HDBC
 import Database.HDBC.SqlValue
 import Data.Convertible.Base
 import Database.HDBC.Sqlite3
-
+import Data.Char
 
 --data types
 type HqlTable  = String
@@ -54,6 +55,19 @@ execHqlCreateTable table =
                               commit conn;
                               disconnect conn;
                               return () 
+
+--return type of column 
+returnColumnType tabName colName  = do
+                                       let query = "PRAGMA table_info("++tabName++");"
+                                       conn <- connectSqlite3 "test1.db";
+                                       r <- quickQuery' conn query [];
+                                       let
+                                          stringRow = map ( \ y -> ((!!) y 1,(!!) y 2) ) r
+                                          columnType = filter ( \ (a,b) -> if a == toSql colName then True else False) stringRow
+                                       disconnect conn;
+                                       return $ map toUpper (fromSql ( snd $ head columnType )::String)
+ 
+
 
 --select value from databases.
 execHqlSelectTable :: HqlTable -> [HqlColumn] -> IO ()
