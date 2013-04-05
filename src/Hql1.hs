@@ -32,8 +32,8 @@ data HqlCreateTable = HqlCreateTable { tableName  :: HqlTable,
                                        columnList :: [HqlColumn],
                                        typeList   :: [HqlType]
                                      } 
-         		      deriving Show
-         		                                                            
+                               deriving Show
+                                                                                     
             
 --creating table
 createColumnList :: HqlCreateTable -> String
@@ -73,24 +73,24 @@ returnColumnType tabName colName  = do
 execHqlSelectTable :: HqlTable -> [HqlColumn] -> IO ()
 
 execHqlSelectTable tabName colName  = do  
-											--convert List of column to String.
-											let col colName 
-														| colName == ["*"] = " * " 
-														| otherwise = foldl ( \ x y -> x ++ "," ++ y ) ( head colName ) ( tail colName )
-											--create a query
-											let query = "select " ++ col colName ++ " from " ++ tabName ++ ";"
-											--database connection
-											conn <- connectSqlite3 "test1.db";
-											r <- quickQuery' conn query [];
-											
-											let   
-											      convRow :: [SqlValue] -> [String]
-											      x = (head r)
-											      len1 = length x -1
-											      convRow x = map (\ t -> fromSql $ ((!!) x t)::String ) [0..len1]
-											      stringRows = map convRow r											      
-											print stringRows
-											
-											disconnect conn;
-											
-			                
+                                                                                        --convert List of column to String.
+                                                                                        let col colName 
+                                                                                                                | colName == ["*"] = " * " 
+                                                                                                                | otherwise = foldl ( \ x y -> x ++ "," ++ y ) ( head colName ) ( tail colName )
+                                                                                        --create a query
+                                                                                        let query = "select " ++ col colName ++ " from " ++ tabName ++ ";"
+                                                                                        --database connection
+                                                                                        conn <- connectSqlite3 "test1.db";
+                                                                                        r <- quickQuery' conn query [];
+                                                                                        
+                                                                                        let   
+                                                                                              convRow :: [SqlValue] -> [String]
+                                                                                              x = (head r)
+                                                                                              len1 = length x -1
+                                                                                              convRow x = map (\ t -> fromSql $ ((!!) x t)::String ) [0..len1]
+                                                                                              stringRows = map convRow r                                                                                              
+                                                                                        print stringRows
+                                                                                        
+                                                                                        disconnect conn;
+                                                                                        
+                                        
