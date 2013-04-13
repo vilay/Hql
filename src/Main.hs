@@ -14,9 +14,12 @@ main=query
 --main = return $ query table
 -}
 
+
+main :: IO ()
 main = do
-         x <- execHqlInsert "emp" ["name","age","salary"] [] [Varchar,Int,Double]
-         print x
+         x <- execHqlInsert "emp" ["name","age","salary"] [toSql "prashant",toSql "22", toSql "0"] [Varchar,Int,Double]
+         y <- execHqlSelectTable "emp" ["*"]
+         print y
          
          
          

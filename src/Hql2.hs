@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 module Hql2
 (
   HqlTable,   
@@ -22,7 +24,7 @@ import Data.Char
 type HqlTable  = String
 type HqlDB     = String
 type HqlColumn = String 
-
+type HqlValue = String
  
 data HqlType = Int|Varchar|Bool|Double deriving (Show,Ord,Eq)
 
@@ -31,7 +33,39 @@ data HqlCreateTable = HqlCreateTable { tableName  :: HqlTable,
                                        typeList   :: [HqlType]
                                      } 
                                deriving Show
-                                                                                     
+--database name
+database = "test1.db"                             
+        
+        
+data HqlExp = HqlColumnExp HqlColumn
+               | HqlConstExp HqlValue 
+               | HqlLogicExp LogOp HqlExp HqlExp
+               | HqlBoolExp RelOp HqlExp HqlExp       
+        
+        
+data LogOp = AND | OR
+
+data RelOp = LessThan | GreaterThan | Equals
+
+
+   
+                                                 
+--run query
+execRunQuery :: String -> String -> [SqlValue] -> IO Integer
+execRunQuery db query param = do conn <- connectSqlite3  db
+                                 result <- run conn query param
+                                 commit conn
+                                 disconnect conn
+                                 return result
+                          
+--quick Query
+execQuickQuery :: String -> String -> [SqlValue] -> IO [[SqlValue]]
+execQuickQuery db query param = do conn   <- connectSqlite3  db
+                                   result <- quickQuery' conn query param
+                                   commit conn
+                                   disconnect conn
+                                   return result
+ 
             
 --creating table
 createColumnList :: HqlCreateTable -> String
@@ -41,29 +75,20 @@ createColumnList table = let colList = columnList table
                           in
                              foldl ( \ x y -> x ++ "," ++ y ) ( head colPairList ) (tail colPairList)
 
-execHqlCreateTable :: HqlCreateTable -> IO ()
+execHqlCreateTable :: HqlCreateTable -> IO Integer
 execHqlCreateTable table = 
                             do  
                               let query="Create Table " ++ (tableName table) ++ " ( " ++ createColumnList table ++ " ); "
-                              conn <- connectSqlite3  "test1.db";
-                              --run conn "create table test (name Varchar(20),age Int)" [];
-                              --quickQuery' conn query [];
-                              run conn query [];
-                              quickQuery' conn  ("select * from "++(tableName table)) [];
-                              commit conn;
-                              disconnect conn;
-                              return () 
+                              execRunQuery database query []
 
 --return type of column 
 returnColumnType :: HqlTable -> HqlColumn -> IO(String)
 returnColumnType tabName colName  = do
                                        let query = "PRAGMA table_info("++tabName++");"
-                                       conn <- connectSqlite3 "test1.db";
-                                       r <- quickQuery' conn query [];
+                                       r <- execQuickQuery database query []
                                        let
                                           stringRow = map ( \ y -> ((!!) y 1,(!!) y 2) ) r
-                                          columnType = filter ( \ (a,b) -> if a == toSql colName then True else False) stringRow
-                                       disconnect conn;
+                                          columnType = filter ( \ (a,_) -> if a == toSql colName then True else False) stringRow
                                        return $ map toUpper (fromSql ( snd $ head columnType )::String)
  
 convertToHqlType :: IO(String) -> IO(HqlType)
@@ -75,7 +100,7 @@ convertToHqlType strType = do
                                  "BOOL"    -> return Bool
                                  "DOUBLE"  -> return Double
                               
- 
+
  
 
 
@@ -89,19 +114,14 @@ execHqlSelectTable tabName colName  = do
                                                                 | otherwise = foldl ( \ x y -> x ++ "," ++ y ) ( head colName ) ( tail colName )
                                         --create a query
                                         let query = "select " ++ col colName ++ " from " ++ tabName ++ ";"
-                                        --database connection
-                                        conn <- connectSqlite3 "test1.db";
-                                        r <- quickQuery' conn query [];
-                                        
-                                        let   
-                                              convRow :: [SqlValue] -> [String]
-                                              x = (head r)
-                                              len1 = length x -1
-                                              convRow x = map (\ t -> fromSql $ ((!!) x t)::String ) [0..len1]
-                                              stringRows = map convRow r                                                                                              
+                                        r <- execQuickQuery database query [];
+                                        let convRow :: [SqlValue] -> [String]
+                                            x = (head r)
+                                            len1 = length x -1
+                                            convRow x = map (\ t -> fromSql $ ((!!) x t)::String ) [0..len1]
+                                            stringRows = map convRow r        
                                         print stringRows
                                         
-                                        disconnect conn;
 
 validateType :: HqlTable -> [HqlColumn] -> [HqlType] -> IO Bool
 validateType tabName colName types = do 
@@ -112,23 +132,16 @@ validateType tabName colName types = do
                                          []        -> return True
                                          otherwise -> return False
                                        
-                                             
-                                            
-                                          
-                                        
 
-
-{--
-
-
-checkType typ val = case typ of 
-                        "INT"     -> typeOf val == typeOf (1::Int)        
-                        "VARCHAR" -> typeOf val == typeOf "a"           
-                        "BOOL"    -> typeOf val == typeOf True
-                        "DOUBLE"  -> typeOf val == typeOf 1.0
-                        
-  --}
-
-execHqlInsert :: HqlTable -> [HqlColumn] -> [SqlValue] -> [HqlType] -> IO Bool
+execHqlInsert :: HqlTable -> [HqlColumn] -> [SqlValue] -> [HqlType] -> IO Integer
 execHqlInsert tabName colName values types = do
-                                               validateType tabName colName types
+                                               check <- validateType tabName colName types
+                                               let 
+                                                   colList = foldl ( \ x y -> x ++ "," ++ y ) ( head colName ) ( tail colName )
+                                                   paramList = replicate (length colName) "?"
+                                                   valueList  = foldl ( \ x y -> x ++ "," ++ y ) ( head paramList ) ( tail paramList )
+                                                   query = "insert into " ++ tabName ++ " (" ++ colList ++ ") values (" ++ valueList  ++ ");"  
+                                               case check of
+                                                 True  -> execRunQuery database query  values 
+                                                 False -> return (-1)
+                                               
