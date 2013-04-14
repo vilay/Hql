@@ -7,6 +7,9 @@ module Hql2
   HqlType(..),
   HqlCreateTable(..),
   HqlDB,
+  HqlExp(..),
+  HqlLogOp(..),
+  HqlRelOp(..),
   execHqlCreateTable,       
   execHqlSelectTable,
   execHqlInsert,
@@ -19,6 +22,9 @@ where
 import Database.HDBC
 import Database.HDBC.Sqlite3
 import Data.Char
+import Data.List
+import Data.Functor
+import Control.Applicative
 
 --data types
 type HqlTable  = String
@@ -39,13 +45,14 @@ database = "test1.db"
         
 data HqlExp = HqlColumnExp HqlColumn
                | HqlConstExp HqlValue 
-               | HqlLogicExp LogOp HqlExp HqlExp
-               | HqlBoolExp RelOp HqlExp HqlExp       
+               | HqlLogicExp HqlLogOp HqlExp HqlExp
+               | HqlRelExp HqlRelOp HqlExp HqlExp       
+               deriving (Show)
         
         
-data LogOp = AND | OR
+data HqlLogOp = AND | OR deriving (Show)
 
-data RelOp = LessThan | GreaterThan | Equals
+data HqlRelOp = LessThan | GreaterThan | Equals deriving (Show)
 
 
    
@@ -100,16 +107,73 @@ convertToHqlType strType = do
                                  "BOOL"    -> return Bool
                                  "DOUBLE"  -> return Double
                               
+                              
+ioAnd :: IO Bool -> IO (Bool -> Bool)
+ioAnd ioBool = do
+              bool <- ioBool
+              return ((&&) bool) 
+              
+ioEq :: IO String -> IO (String -> Bool)
+ioEq ioStr = do
+              str <- ioStr
+              return ((==) str)                           
+                              
+                              
+                              
+validateExp :: HqlTable -> HqlExp -> IO Bool                         
+validateExp tabName expr = case expr of                     
+                     HqlLogicExp logOp hqlExp1 hqlExp2 -> (<*>) (ioAnd (validateExp tabName hqlExp1)) (validateExp tabName hqlExp2)                      
+                     HqlRelExp relOp hqlExp1 hqlExp2   -> (<*>) (ioEq (getType tabName hqlExp1)) (getType tabName hqlExp2)             
+         
+         
+                       
+getType :: HqlTable -> HqlExp -> IO String
+getType tabName expr = case expr of 
+                  HqlColumnExp hqlColumn -> do ans <- (returnColumnType tabName hqlColumn)
+                                               print ans
+                                               return ans
+                  HqlConstExp hqlValue   -> do ans <- (return (getTypeFromValue hqlValue))
+                                               print ans
+                                               return  ans
 
- 
 
+getTypeFromValue :: HqlValue -> String 
+getTypeFromValue hqlValue = if (isValidString hqlValue)
+                              then "VARCHAR"
+                              else if (elem hqlValue ["True","False"])
+                                     then "BOOL"
+                                     else if (isDouble hqlValue)
+                                          then "DOUBLE"
+                                          else if (and $ (map isDigit hqlValue))
+                                               then "INT"
+                                               else hqlValue ++ "Invalid"
+isDouble :: String -> Bool
+isDouble str = let check1 = and $ (map isDigit (filter (/= '.') str))
+                   indices = elemIndices '.' str
+                   check2 = (length indices) == 1
+               in check1 && check2
+        
+isValidString :: String -> Bool
+isValidString str = let indices = elemIndices '\'' str
+                        check1 = if ((length indices) == 2)
+                                 then ((head indices) == 0) && ((last indices) == ((length str) - 1))
+                                 else False 
+                        indice = elemIndices '"' str
+                        check2 = if ((length indice) == 2)
+                                 then ((head indice) == 0) && ((last indice) == ((length str) - 1))
+                                 else False 
+                    in check1 || check2
+                        
+                        
 
 --select value from databases.
-execHqlSelectTable :: HqlTable -> [HqlColumn] -> IO ()
-
-execHqlSelectTable tabName colName  = do  
+execHqlSelectTable :: HqlTable -> [HqlColumn] -> HqlExp -> IO ()
+execHqlSelectTable tabName colName expr = do  
+                                        print expr
+                                        check <- validateExp tabName expr
+                                        print check
                                         --convert List of column to String.
-                                        let col colName 
+                                        {-let col colName 
                                                                 | colName == ["*"] = " * " 
                                                                 | otherwise = foldl ( \ x y -> x ++ "," ++ y ) ( head colName ) ( tail colName )
                                         --create a query
@@ -120,7 +184,7 @@ execHqlSelectTable tabName colName  = do
                                             len1 = length x -1
                                             convRow x = map (\ t -> fromSql $ ((!!) x t)::String ) [0..len1]
                                             stringRows = map convRow r        
-                                        print stringRows
+                                        print stringRows -}
                                         
 
 validateType :: HqlTable -> [HqlColumn] -> [HqlType] -> IO Bool
