@@ -20,6 +20,7 @@ executable Hql
                    base >= 4,
                    HDBC-sqlite3,
                    HDBC,
-                   convertible
+                   convertible,
+                   template-haskell
   ghc-options:     -Wall
 
