@@ -6,10 +6,12 @@ module Hql2
   HqlColumn,
   HqlType(..),
   HqlCreateTable(..),
+  HqlSelectQuery(..),
   HqlDB,
   HqlExp(..),
   HqlLogOp(..),
   HqlRelOp(..),
+  HqlSubOp(..),
   execHqlCreateTable,       
   execHqlSelectTable,
   execHqlInsert,
@@ -46,13 +48,20 @@ database = "test1.db"
 data HqlExp = HqlColumnExp HqlColumn
                | HqlConstExp HqlValue 
                | HqlLogicExp HqlLogOp HqlExp HqlExp
-               | HqlRelExp HqlRelOp HqlExp HqlExp       
+               | HqlRelExp HqlRelOp HqlExp HqlExp     
+               | HqlSubExp HqlRelOp HqlSubOp HqlExp HqlSelectQuery
+               | HqlEmpty
                deriving (Show)
         
-        
+data HqlSelectQuery = HqlSelectQuery { tabName::HqlTable,
+                           columnName::[HqlColumn],
+                           expr:: HqlExp
+                          } deriving (Show)
+                                 
+data HqlSubOp = ANY | ALL | SOME   deriving (Show)     
 data HqlLogOp = AND | OR deriving (Show)
 
-data HqlRelOp = LessThan | GreaterThan | Equals deriving (Show)
+data HqlRelOp = LessThan | GreaterThan | Equals | NotEqual | GTEqual | LTEqual deriving (Show)
 
 
    
@@ -120,16 +129,23 @@ ioEq ioStr = do
                               
                               
                               
-validateExp :: HqlTable -> HqlExp -> IO Bool                         
-validateExp tabName expr = case expr of                     
-                     HqlLogicExp logOp hqlExp1 hqlExp2 -> (<*>) (ioAnd (validateExp tabName hqlExp1)) (validateExp tabName hqlExp2)                      
-                     HqlRelExp relOp hqlExp1 hqlExp2   -> (<*>) (ioEq (getType tabName hqlExp1)) (getType tabName hqlExp2)             
-         
+validateExp :: HqlSelectQuery -> IO Bool                         
+validateExp hqlSelectQuery = case (expr hqlSelectQuery) of                     
+                  HqlLogicExp logOp hqlExp1 hqlExp2 -> (<*>) (ioAnd (validateExp (HqlSelectQuery (tabName hqlSelectQuery) (columnName hqlSelectQuery) hqlExp1))) 
+                                                                        (validateExp (HqlSelectQuery (tabName hqlSelectQuery) (columnName hqlSelectQuery) hqlExp2))                                                   
+                  HqlRelExp relOp hqlExp1 hqlExp2   -> (<*>) (ioEq (getType (tabName hqlSelectQuery) hqlExp1)) (getType (tabName hqlSelectQuery) hqlExp2)
+                  HqlSubExp hqlRelOp hqlSubOp hqlExp hqlSelectQuery -> (<*>) (ioEq (getType (tabName hqlSelectQuery) hqlExp)) (getSubQueryType hqlSelectQuery)
+                  HqlEmpty -> return True
+                                                                                   
+getSubQueryType :: HqlSelectQuery -> IO String
+getSubQueryType hqlSelectQuery = do check <- (validateExp hqlSelectQuery)
+                                    if check then getType (tabName hqlSelectQuery) (HqlColumnExp (head (columnName hqlSelectQuery)))
+                                             else return "Invalid Subquery"                 
          
                        
 getType :: HqlTable -> HqlExp -> IO String
-getType tabName expr = case expr of 
-                  HqlColumnExp hqlColumn -> do ans <- (returnColumnType tabName hqlColumn)
+getType hqlTable hqlExp = case hqlExp of 
+                  HqlColumnExp hqlColumn -> do ans <- (returnColumnType hqlTable hqlColumn)
                                                print ans
                                                return ans
                   HqlConstExp hqlValue   -> do ans <- (return (getTypeFromValue hqlValue))
@@ -152,6 +168,7 @@ isDouble str = let check1 = and $ (map isDigit (filter (/= '.') str))
                    indices = elemIndices '.' str
                    check2 = (length indices) == 1
                in check1 && check2
+
         
 isValidString :: String -> Bool
 isValidString str = let indices = elemIndices '\'' str
@@ -167,10 +184,9 @@ isValidString str = let indices = elemIndices '\'' str
                         
 
 --select value from databases.
-execHqlSelectTable :: HqlTable -> [HqlColumn] -> HqlExp -> IO ()
-execHqlSelectTable tabName colName expr = do  
-                                        print expr
-                                        check <- validateExp tabName expr
+execHqlSelectTable :: HqlSelectQuery -> IO ()
+execHqlSelectTable hqlSelectQuery = do  
+                                        check <- validateExp hqlSelectQuery
                                         print check
                                         --convert List of column to String.
                                         {-let col colName 
