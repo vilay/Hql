@@ -1,5 +1,8 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+
+
 module Hql2
 (
   HqlTable,   
@@ -15,6 +18,7 @@ module Hql2
   execHqlCreateTable,       
   execHqlSelectTable,
   execHqlInsert,
+  execHqlUpdate,
   returnColumnType 
 )
 where
@@ -27,6 +31,7 @@ import Data.Char
 import Data.List
 import Data.Functor
 import Control.Applicative
+import Language.Haskell.TH
 
 --data types
 type HqlTable  = String
@@ -42,7 +47,7 @@ data HqlCreateTable = HqlCreateTable { tableName  :: HqlTable,
                                      } 
                                deriving Show
 --database name
-database = "test1.db"                             
+database = "test1.db"                            
         
         
 data HqlExp = HqlColumnExp HqlColumn
@@ -57,6 +62,12 @@ data HqlSelectQuery = HqlSelectQuery { tabName::HqlTable,
                            columnName::[HqlColumn],
                            expr:: HqlExp
                           } deriving (Show)
+                          
+data HqlUpdateQuery = HqlUpdateQuery { updtTabName :: HqlTable,
+                                       updtColName :: [HqlColumn],
+                                       values :: [HqlValue], 
+                                       updtExp :: HqlExp
+                                     } deriving (show)                         
                                  
 data HqlSubOp = ANY | ALL | SOME   deriving (Show)     
 data HqlLogOp = AND | OR deriving (Show)
@@ -184,10 +195,13 @@ isValidString str = let indices = elemIndices '\'' str
                         
 
 --select value from databases.
-execHqlSelectTable :: HqlSelectQuery -> IO ()
-execHqlSelectTable hqlSelectQuery = do  
+execHqlSelectTable :: HqlSelectQuery -> String -> IO ()
+execHqlSelectTable hqlSelectQuery query = do  
                                         check <- validateExp hqlSelectQuery
                                         print check
+                                        r <- execQuickQuery database query [];
+                                        print r
+                                        
                                         --convert List of column to String.
                                         {-let col colName 
                                                                 | colName == ["*"] = " * " 
@@ -212,7 +226,7 @@ validateType tabName colName types = do
                                          []        -> return True
                                          otherwise -> return False
                                        
-
+--insert into table
 execHqlInsert :: HqlTable -> [HqlColumn] -> [SqlValue] -> [HqlType] -> IO Integer
 execHqlInsert tabName colName values types = do
                                                check <- validateType tabName colName types
@@ -225,3 +239,28 @@ execHqlInsert tabName colName values types = do
                                                  True  -> execRunQuery database query  values 
                                                  False -> return (-1)
                                                
+--update the table
+{-
+execHqlUpdate :: HqlUpdateQuery -> String -> IO Integer
+execHqlUpdate hqlUpdateQuery query = do
+                                       let typeList = map getTypeFromValue (updtExp hqlUpdateQuery)
+                                       check1 <- validateType (updtTabName hqlUpdateQuery) (updtColName hqlUpdateQuery) typeList
+                                       check2 <- validateExp (HqlSelectQuery (updtTabName hqlUpdateQuery) (updtColName hqlUpdateQuery) (updtExp hqlUpdateQuery))
+                                       case (check1 && check2 ) of
+                                         True  -> return 1 --execRunQuery database query  [] 
+                                         False -> return (-1)-}
+                                       
+
+
+
+
+
+
+
+
+
+
+
+
+
+

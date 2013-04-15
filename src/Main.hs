@@ -20,7 +20,7 @@ main=query
 main :: IO ()
 main = do
         -- x <- execHqlInsert "emp" ["name","age","salary"] [toSql "prashant",toSql "22", toSql "0"] [Varchar,Int,Double]
-         y <- execHqlSelectTable (HqlSelectQuery "emp" ["*"] (HqlSubExp Equals ANY (HqlColumnExp "salary") (HqlSelectQuery "emp" ["age"] HqlEmpty)))         
+         y <- execHqlSelectTable (HqlSelectQuery "emp" ["*"] (HqlLogicExp AND (HqlSubExp Equals ANY (HqlColumnExp "salary") (HqlSelectQuery "emp" ["salary"] HqlEmpty)) (HqlRelExp Equals (HqlColumnExp "name") (HqlConstExp "'Prashant'")) )) ("select * from emp where name = 'prashant';")         
          print y
          
          
