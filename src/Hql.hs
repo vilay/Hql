@@ -24,7 +24,8 @@ module Hql
   execHqlUpdate,
   execHqlDelete,
   execHql,
-  returnColumnType 
+  returnColumnType,
+  stringToHqlType 
 )
 where
 
