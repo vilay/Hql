@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 
 import Control.Applicative hiding (many, (<|>))
 

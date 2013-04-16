@@ -21,6 +21,7 @@ executable Hql
                    HDBC-sqlite3,
                    HDBC,
                    convertible,
-                   template-haskell
+                   template-haskell,
+                   parsec
   ghc-options:     -Wall
 
