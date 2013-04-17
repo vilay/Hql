@@ -1,0 +1,23 @@
+Information           : It is database interface library for Haskell that uses SQLite at the
+                        backend. It has 2 advantages – one is it make database strongly typed
+                        and other is it avoids SQL Injections. We are also creating a Parser that
+                        parses the SQL queries and uses the library to run these queries on
+                        database.
+ 
+
+Title                 : Implementation of Strict Type checking and Sql Injection Handling Library and Parser for Sqlite.
+
+
+Member Details        : Awate Shrikant Rohidas  (12111016)
+                        Aher Pankaj Vitthal     (12111006)
+                        Kandi Vilay Sudhakar    (12111025)
+                        Momale Prashant Dileep  (12111033) 
+                          
+
+URL to git repository : https://github.com/vilay/Hql.git
+
+
+Documentation         : Available in the same folder used with the help of haddock documentation.
+
+
+Testing.txt           : Cantains some sample test cases fo Type checking and Sql Injection.

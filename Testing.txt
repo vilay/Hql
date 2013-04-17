@@ -1,0 +1,43 @@
+-- Create  check case insensitive , check spaces , check single column in bracket , no column
+
+create table emp(name VarCHar,salary double,age int);
+create table emp(name VarCHar,salary double,age int)
+create table emp(name varchar);
+create table emp(); ??
+
+
+
+
+-- check ; , spaces , empty () , no () , '' replace by "" , check type
+
+insert into emp (name,salary,age) values ('prashant',22.22,22);
+insert into emp (name,salary,age) values ('prashant',22.22,22)
+insert into emp () values ('prashant',22.22,22);  ??
+insert into emp    values ('prashant',22.22,22); 
+insert into emp    values ("shrikant",22.22,22); 
+insert into emp    values ("shrikant",22,"dfsd"); 
+
+
+-- select check * , no * , individual relational subqry , logicla subqry with without bracket 
+
+select * from emp;
+select * from emp
+select name,salary from emp;
+select * from emp where name = 'prashant';
+select * from emp where name in (select name from emp);
+select * from emp where (name = 'prashant' and age > 20) and name in (select name from emp);
+select * from emp where (name = "prashant" and age > 20) and salary = 34.56;
+select * from emp where name = 'prashant' and age > 20 and salary = 34.56;
+
+-- 
+
+delete from emp;
+delete from emp
+delete from emp where  name = 'prashant';
+delete from emp where name in (select name from emp);
+delete from emp where (name = 'prashant' and age > 20) and name in (select name from emp);
+delete from emp where (name = "prashant" and age > 20) and salary = 34.56;
+delete from emp where name = 'prashant' and age > 20 and salary = 34.56;
+
+update emp set name = 'shrikant',age=16 where name = "prashant";
+update emp set name = 'shrikant',age=16 where name = "prashant"

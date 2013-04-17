@@ -47,8 +47,11 @@ type HqlDB     = String
 type HqlColumn = String 
 type HqlValue = String
  
+ 
+--data types for columns 
 data HqlType = Int|Varchar|Bool|Double|Invalid deriving (Show,Ord,Eq)
 
+-- data type for Create Table Query
 data HqlCreateTable = HqlCreateTable { tableName  :: HqlTable,
                                        columnList :: [HqlColumn],
                                        typeList   :: [HqlType]
@@ -57,7 +60,7 @@ data HqlCreateTable = HqlCreateTable { tableName  :: HqlTable,
 --database name
 database = "test1.db"                            
         
-        
+-- Different types Expressions that can be present in where clause         
 data HqlExp = HqlColumnExp HqlColumn
                | HqlConstExp HqlValue 
                | HqlLogicExp HqlLogOp HqlExp HqlExp
@@ -66,6 +69,8 @@ data HqlExp = HqlColumnExp HqlColumn
                | HqlEmpty
                deriving (Show)
         
+        
+-- Data type         
 data HqlSelectQuery = HqlSelectQuery { tabName::HqlTable,
                            columnName::[HqlColumn],
                            expr:: HqlExp
@@ -87,7 +92,7 @@ data HqlDeleteQuery = HqlDeleteQuery { delTabName :: HqlTable,
                                        delExp :: HqlExp
                                      } deriving (Show) 
                                                                       
-data HqlSubOp = ANY | ALL | SOME   deriving (Show)     
+data HqlSubOp = In   deriving (Show)     
 data HqlLogOp = AND | OR deriving (Show)
 
 data HqlRelOp = LessThan | GreaterThan | Equals | NotEqual | GTEqual | LTEqual deriving (Show)
@@ -123,17 +128,19 @@ createColumnList table = let colList = columnList table
 execHqlCreateTable :: HqlCreateTable -> IO Integer
 execHqlCreateTable table = 
                             do  
-                              let query="Create Table " ++ tableName table ++ " ( " ++ createColumnList table ++ " ); "
+                              --let query="Create Table " ++ tableName table ++ " ( " ++ createColumnList table ++ " ); "
+                              query <- returnColList table
                               execRunQuery database query []
                               
+returnColList table =  Control.Exception.catch (return ("Create Table " ++ tableName table ++ " ( " ++ createColumnList table ++  ");")) ( \ ex -> fail $ "Column Name not present in table" ++ show (ex :: SomeException)) 
 
+ 
 --return type of column 
 returnColumnType :: HqlTable -> HqlColumn -> IO String
 returnColumnType tabNam colName  = do
                                        let query = "PRAGMA table_info("++tabNam++");"
                                        result <- execQuickQuery database query []
                                        if length result == 0 
-                                          --then return "NoTable"
                                           then fail $ "No Such Table " ++ tabNam ++ " present in database !!!"
                                           else Control.Exception.catch (searchColumn result colName) ( \ ex -> fail $ "Column Name " ++ colName ++ " not present in table " ++ show (ex :: SomeException))
 
@@ -145,7 +152,6 @@ returnColumnList tabNam = do
                             let stringRow = map (\ y -> (!!) y 1 ) result
                                 colNames = map (\x -> fromSql x :: String) stringRow                            
                             return colNames
-
 
 {-                                      
 writeExc :: SomeException -> IO String                                          
@@ -192,7 +198,7 @@ ioEq ioStr = do
               str <- ioStr
               return (str ==)                         
                               
-                              
+                  
                               
 validateExp :: HqlSelectQuery -> IO Bool                         
 validateExp hqlSelectQuery = case (expr hqlSelectQuery) of                     
@@ -202,13 +208,14 @@ validateExp hqlSelectQuery = case (expr hqlSelectQuery) of
                   HqlSubExp hqlRelOp hqlSubOp hqlExp hqlSelectQuery -> (<*>) (ioEq (getType (tabName hqlSelectQuery) hqlExp)) (getSubQueryType hqlSelectQuery)
                   HqlEmpty -> return True
                   otherwise -> fail "Invalid Query"
+
                                                                                    
 getSubQueryType :: HqlSelectQuery -> IO String
 getSubQueryType hqlSelectQuery = do check <- validateExp hqlSelectQuery
                                     if check then getType (tabName hqlSelectQuery) (HqlColumnExp (head (columnName hqlSelectQuery)))
-                                             --else return "Invalid Subquery"
                                              else fail "Invalid Subquery !!"                 
          
+
                        
 getType :: HqlTable -> HqlExp -> IO String
 getType hqlTable hqlExp = case hqlExp of 
@@ -220,6 +227,8 @@ getType hqlTable hqlExp = case hqlExp of
                                                return  ans
                   otherwise              -> fail "Validation Failed. Incorrect parameter to getType"
 
+
+
 getTypeFromValue :: HqlValue -> String 
 getTypeFromValue hqlValue = if (isValidString hqlValue)
                               then "VARCHAR"
@@ -229,7 +238,6 @@ getTypeFromValue hqlValue = if (isValidString hqlValue)
                                           then "DOUBLE"
                                           else if all isDigit hqlValue
                                                then "INT"
-                                               --else hqlValue ++ "Invalid"
                                                else fail "Datatype for value : " ++ hqlValue ++ " is not supported !!"
 
 
@@ -250,32 +258,19 @@ isValidString str = let indices = elemIndices '\'' str
                                  then ((head indice) == 0) && ((last indice) == ((length str) - 1))
                                  else False 
                     in check1 || check2
-                        
+                     
                         
 
 --select value from databases.
 execHqlSelectTable :: HqlSelectQuery -> String -> IO Integer
 execHqlSelectTable hqlSelectQuery query = do  
-                                        check <- validateExp hqlSelectQuery
-                                        print check
-                                        --r <- Control.Exception.catch (execQuickQuery database query []) dispException1
-                                        r <- execQuickQuery database query []
-                                        print r
-                                        return $ toInteger $ length r
-                                        
-                                        --convert List of column to String.
-                                        {-let col colName 
-                                                                | colName == ["*"] = " * " 
-                                                                | otherwise = foldl ( \ x y -> x ++ "," ++ y ) ( head colName ) ( tail colName )
-                                        --create a query
-                                        let query = "select " ++ col colName ++ " from " ++ tabName ++ ";"
-                                        r <- execQuickQuery database query [];
-                                        let convRow :: [SqlValue] -> [String]
-                                            x = (head r)
-                                            len1 = length x -1
-                                            convRow x = map (\ t -> fromSql $ ((!!) x t)::String ) [0..len1]
-                                            stringRows = map convRow r        
-                                        print stringRows -}
+                                            check <- validateExp hqlSelectQuery
+                                            if (check == False) then fail "Query Validation Failed" else return ""
+                                                --r <- Control.Exception.catch (execQuickQuery database query []) dispException1
+                                            r <- execQuickQuery database query []
+                                            print $ show (length r) ++ " rows Selected"    
+                                            print r
+                                            return $ toInteger $ length r
                                         
 
 validateType :: HqlTable -> [HqlColumn] -> [HqlType] -> IO Bool
@@ -292,29 +287,21 @@ execHqlInsert :: HqlInsertQuery -> String -> IO Integer
 execHqlInsert hqlInsertQuery query = do
                                        let typeList = map (stringToHqlType.getTypeFromValue) (insValues hqlInsertQuery)                                       
                                        cols <- if (insColName hqlInsertQuery == [])
-                                                     then returnColumnList (insTabName hqlInsertQuery)
-                                                     else return $ insColName hqlInsertQuery  
-                                       print cols
-                                       print hqlInsertQuery
-                                       check <- validateType (insTabName hqlInsertQuery) cols typeList              
-                                       --check <- validateType (insTabName hqlInsertQuery) (insColName hqlInsertQuery) typeList
-                                       {--let colList = foldl ( \ x y -> x ++ "," ++ y ) ( head colName ) ( tail colName )
-                                                   paramList = replicate (length colName) "?"
-                                                   valueList  = foldl ( \ x y -> x ++ "," ++ y ) ( head paramList ) ( tail paramList )
-                                                   query = "insert into " ++ tabName ++ " (" ++ colList ++ ") values (" ++ valueList  ++ ");" --}  
+                                                  then returnColumnList (insTabName hqlInsertQuery)
+                                                  else return $ insColName hqlInsertQuery  
+                                       check <- validateType (insTabName hqlInsertQuery) cols typeList
                                        case check of
-                                            True  -> execRunQuery database query []
+                                            True  -> do
+                                                        final <- execRunQuery database query []
+                                                        print $ show final ++ " Rows inserted ."
+                                                        return final
                                             False -> fail "insert query validation failed"                                           
-                               
-                                               
-                                        
-
 
                      
 dispException1 :: SomeException -> IO [[SqlValue]]
 dispException1 ex = do
-                     putStrLn $ "Caught exception: " ++ show ex
-                     return [[]]
+                      putStrLn $ "Caught exception: " ++ show ex
+                      return [[]]
                      
                                                
 --update the table
@@ -324,15 +311,22 @@ execHqlUpdate hqlUpdateQuery query = do
                                        check1 <- validateType (updtTabName hqlUpdateQuery) (updtColName hqlUpdateQuery) typeList
                                        check2 <- validateExp (HqlSelectQuery (updtTabName hqlUpdateQuery) (updtColName hqlUpdateQuery) (updtExp hqlUpdateQuery))
                                        case (check1 && check2) of
-                                         True  -> execRunQuery database query []
+                                         True  -> do
+                                                    final <- execRunQuery database query []
+                                                    print $ show final ++ " Rows updated"
+                                                    return final
                                          False -> fail "update query validation failed"
+                                         
                                          
 --delete the rows from table
 execHqlDelete :: HqlDeleteQuery -> String -> IO Integer
 execHqlDelete hqlDeleteQuery query = do
                                        check <- validateExp (HqlSelectQuery (delTabName hqlDeleteQuery) [] (delExp hqlDeleteQuery))
                                        case check of
-                                         True  -> execRunQuery database query [] 
+                                         True  -> do
+                                                    final <- execRunQuery database query []
+                                                    print $ show final ++ " Rows Deleted"
+                                                    return final 
                                          False -> fail "delete query validation failed"
                                          
 execHql :: String -> IO Integer

@@ -58,8 +58,8 @@ whiteSpace = Token.whiteSpace hqLexer -- parses whitespace
 main :: IO Integer                    -- Parses input query
 main = 
 
-        do input <- readFile "query.txt"
---      do input <- getLine
+       -- do input <- readFile "query.txt"
+        do input <- getLine
            case (parse hqlParser "(Unknown)" input) of
                 Left  x -> do print x 
                               return (-2)
@@ -227,8 +227,8 @@ parseHqlSubExp =
         do whiteSpace;
            colExp <- parseHqlColumnExp;
            whiteSpace
-           relOpType <- parseRelOp
-           whiteSpace
+           --relOpType <- parseRelOp
+           --whiteSpace
            subOpType <- parseSubOp
            whiteSpace
            char '('
@@ -236,7 +236,7 @@ parseHqlSubExp =
            subQry <- subSelectStmt
            whiteSpace
            case subQry of
-                 Select y -> return (HqlSubExp relOpType subOpType colExp y)
+                 Select y -> return (HqlSubExp Equals subOpType colExp y)
                  otherwise -> return HqlEmpty
 
 
@@ -267,8 +267,8 @@ parseHqlConstExp =
        --return (HqlConstExp "'prashant'") 
 
 parseStringLiteral :: Parser String
-parseStringLiteral = do char '\''; x <- identifier; char '\''; return ("\'" ++ x ++ "\'")
-
+parseStringLiteral = do (char '"') ; x <- many (noneOf "\""); (char '"'); return ("\'" ++ x ++ "\'")
+                          
 parseFloat :: Parser String
 parseFloat = do x <- identifier; char '.' ; y <- identifier ; return (x ++ "." ++ y)
 
@@ -283,12 +283,8 @@ parseRelOp =
 
 parseSubOp :: Parser HqlSubOp
 parseSubOp =
-           (ANY    <$  try(string "any")) <|>
-           (ANY    <$  try(string "ANY")) <|>
-           (SOME   <$  try(string "some")) <|>
-           (SOME   <$  try(string "SOME")) <|>
-           (ALL    <$  try(string "all")) <|>
-           (ALL    <$  try(string "ALL")) <?>
+           (In    <$  try(string "in")) <|>
+           (In    <$  try(string "In")) <?>
            "Valid SubQuery operator"
 
 parseLogicalOp :: Parser HqlLogOp
@@ -380,6 +376,7 @@ updateStmtNoWhere =
            whiteSpace
            setcols <- parseTillWhere [] []
            whiteSpace
+           semi
            return $ (Update (HqlUpdateQuery tabName (fst setcols) (snd setcols) HqlEmpty))
            
 updateStmtWithWhere :: Parser HqlQuery
@@ -393,6 +390,8 @@ updateStmtWithWhere =
            setcols <- parseTillWhere [] []
            whiteSpace
            exp <- parseWhereClause
+           whiteSpace
+           semi
            return $ (Update (HqlUpdateQuery tabName (fst setcols) (snd setcols) exp))
 
 parseTillWhere :: [String] -> [String] -> Parser ([String],[String])
@@ -421,7 +420,7 @@ dropStmt =
                 whiteSpace
                 identifier
                 whiteSpace
-                semi
+                semi <?> "Semicolon"
                 return Drop
 
 
@@ -444,7 +443,7 @@ deleteStmtWhere =
          whiteSpace
          exp <- parseWhereClause
          whiteSpace
-         semi
+         semi <?> "Semicolon"
          return (Delete (HqlDeleteQuery tabName exp )) 
 
 deleteStmtNoWhere =
@@ -455,7 +454,7 @@ deleteStmtNoWhere =
                 whiteSpace
                 tabName <- identifier
                 whiteSpace
-                semi
+                semi <?> "Semicolon"
                 return (Delete (HqlDeleteQuery tabName HqlEmpty))
 
 ---------------------------------------------------------------------------------------
@@ -479,7 +478,7 @@ alterStmtRename =
                     whiteSpace
                     newTabName <- identifier
                     whiteSpace
-                    semi
+                    semi <?> "Semicolon"
                     return Alter
 
 
@@ -498,6 +497,6 @@ alterStmtAdd =
                    whiteSpace
                    tabDef <- identifier
                    whiteSpace
-                   semi
+                   semi <?> "Semicolon"
                    return Alter
 
