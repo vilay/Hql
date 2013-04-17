@@ -335,8 +335,8 @@ execHqlDelete hqlDeleteQuery query = do
                                          True  -> execRunQuery database query [] 
                                          False -> fail "delete query validation failed"
                                          
-execHql :: String -> IO ()
+execHql :: String -> IO Integer
 execHql query = do
                   execRunQuery database query []
-                  return ()
+                  return 1
                   

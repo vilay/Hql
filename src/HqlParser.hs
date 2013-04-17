@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
-module HqlParser2 where
+module HqlParser where
 import Hql
 
 import Control.Applicative hiding (many, (<|>))
@@ -58,12 +58,12 @@ whiteSpace = Token.whiteSpace hqLexer -- parses whitespace
 main :: IO Integer                    -- Parses input query
 main = 
 
-	do input <- readFile "query.txt"
---	do input <- getLine
-	   case (parse hqlParser "(Unknown)" input) of
-	    	Left  x -> do print x 
-	    	              return (-2)
-	    	Right z -> case z of 
+        do input <- readFile "query.txt"
+--      do input <- getLine
+           case (parse hqlParser "(Unknown)" input) of
+                Left  x -> do print x 
+                              return (-2)
+                Right z -> case z of 
                             Create y -> execHqlCreateTable y
                             Select y -> execHqlSelectTable y input
                             Insert y -> execHqlInsert y input
@@ -75,7 +75,7 @@ main =
         
 ---------------------------------------------------------------------------------------
 --    Top level Parser                                                              --
--- 																				                                                            	--
+--                                                                                                                                                                                                                              --
 ---------------------------------------------------------------------------------------
 hqlParser :: Parser HqlQuery
 hqlParser = whiteSpace >> hqlQueryParser
@@ -108,7 +108,7 @@ hqlStmt = createStmt
           <|> alterStmt--}
 ---------------------------------------------------------------------------------------
 --    Individual Query Parser                                                       --
--- 																					--
+--                                                                                                                                                                      --
 ---------------------------------------------------------------------------------------
 
 ---------------------------------------------------------------------------------------
@@ -116,19 +116,19 @@ hqlStmt = createStmt
 
 createStmt :: Parser HqlQuery
 createStmt = 
-	do reserved "create"
-	   whiteSpace
-	   reserved "table" 
-	   whiteSpace
-	   tabName <- identifier 
-	   whiteSpace
-	   char '('
-	   paraContent <- parsePara
-	   whiteSpace
-	   char ')'
-	   whiteSpace
-	   semi 
-	   return ( Create ( HqlCreateTable tabName (fst (getParaContent (splitContent paraContent) )) (snd (getParaContent (splitContent paraContent)))) )
+        do reserved "create"
+           whiteSpace
+           reserved "table" 
+           whiteSpace
+           tabName <- identifier 
+           whiteSpace
+           char '('
+           paraContent <- parsePara
+           whiteSpace
+           char ')'
+           whiteSpace
+           semi 
+           return ( Create ( HqlCreateTable tabName (fst (getParaContent (splitContent paraContent) )) (snd (getParaContent (splitContent paraContent)))) )
 
 parsePara :: Parser String
 parsePara = many (noneOf ")\n")
@@ -149,121 +149,121 @@ getParaContent input = (,) (map (head.words) input) (map (stringToHqlType.last.w
 
 selectStmt :: Parser HqlQuery
 selectStmt =
-	do reserved "select"
-	   whiteSpace
-	   colName <- parseTillFrom []
-	   whiteSpace
-	   --reserved "from"
-	   whiteSpace
-	   tabName <- identifier
-	   whiteSpace
-	   isSemi <- semi <|> string "where" <?> "Where keyword or semicolon"
-	   case ((head isSemi) == ';') of 
-	   	    True -> return ( Select (HqlSelectQuery tabName colName HqlEmpty) )
-	   	    False -> do 
-	   	                exp <- parseWhereClause
-	   	                semi
-	   	                return (Select (HqlSelectQuery tabName colName  exp  ) )
+        do reserved "select"
+           whiteSpace
+           colName <- parseTillFrom []
+           whiteSpace
+           --reserved "from"
+           whiteSpace
+           tabName <- identifier
+           whiteSpace
+           isSemi <- semi <|> string "where" <?> "Where keyword or semicolon"
+           case ((head isSemi) == ';') of 
+                    True -> return ( Select (HqlSelectQuery tabName colName HqlEmpty) )
+                    False -> do 
+                                exp <- parseWhereClause
+                                semi
+                                return (Select (HqlSelectQuery tabName colName  exp  ) )
 
-	   
+           
 parseTillFrom :: [String] -> Parser [String]
 parseTillFrom x =
-	do whiteSpace
-	   colName <- string "*" <|> identifier
-	   case (head colName == '*') of
-	   	True -> do whiteSpace; reserved "from"; return ((++) x [colName]) 
-	   	False -> do whiteSpace; keywrd <- string "," <|> string "from" ;
-	   	            case (head keywrd == ',') of
-	   	             True -> parseTillFrom ((++) x [colName])
-	   	             False -> return ((++) x [colName])
-	  
+        do whiteSpace
+           colName <- string "*" <|> identifier
+           case (head colName == '*') of
+                True -> do whiteSpace; reserved "from"; return ((++) x [colName]) 
+                False -> do whiteSpace; keywrd <- string "," <|> string "from" ;
+                            case (head keywrd == ',') of
+                             True -> parseTillFrom ((++) x [colName])
+                             False -> return ((++) x [colName])
+          
 
 --------------------------------------------------------------------------------------
 -- Where Clause
 
 parseWhereClause :: Parser HqlExp
 parseWhereClause = 
-	do  whiteSpace 
-	    (try parseHqlLogicExpNoBrace) <|> (try parseHqlSubExp) <|> (try parseHqlRelExp) <?> "Valid where clause"
-	    --parseHqlRelExp
-	    --(try parseHqlLogicExp) <|> (try parseHqlRelExp) <|> (try parseHqlSubExp) <?> "Valid where clause"
-	   
+        do  whiteSpace 
+            (try parseHqlLogicExpNoBrace) <|> (try parseHqlSubExp) <|> (try parseHqlRelExp) <?> "Valid where clause"
+            --parseHqlRelExp
+            --(try parseHqlLogicExp) <|> (try parseHqlRelExp) <|> (try parseHqlSubExp) <?> "Valid where clause"
+           
 
 parseHqlLogicExpNoBrace :: Parser HqlExp
 parseHqlLogicExpNoBrace =
-	   do whiteSpace;
-	      skipMany (oneOf "()")
-	      whiteSpace
-	      qry1 <- (try parseHqlSubExp) <|> (try parseHqlRelExp) <?> "Valid clause in logical expression"
-	      whiteSpace
-	      skipMany (oneOf "()")
-	      whiteSpace
-	      subLogOp <- parseLogicalOp
-	      whiteSpace
-	      qry2 <- parseWhereClause;
-	      whiteSpace
-	      skipMany (oneOf "()");
-	   			return (HqlLogicExp subLogOp qry1 qry2)
-	
-{--	   		
+           do whiteSpace;
+              skipMany (oneOf "()")
+              whiteSpace
+              qry1 <- (try parseHqlSubExp) <|> (try parseHqlRelExp) <?> "Valid clause in logical expression"
+              whiteSpace
+              skipMany (oneOf "()")
+              whiteSpace
+              subLogOp <- parseLogicalOp
+              whiteSpace
+              qry2 <- parseWhereClause;
+              whiteSpace
+              skipMany (oneOf "()");
+                                return (HqlLogicExp subLogOp qry1 qry2)
+        
+{--                     
 parseHqlLogicExpBrace :: Parser HqlExp
 parseHqlLogicExpBrace =
-	   do whiteSpace
-	      skipMany (char '(')
-	      qry1 <- parseWhereClause
-	      whiteSpace
-	      subLogOp <- parseLogicalOp
-	      whiteSpace
-	      qry2 <- parseWhereClause;
-	      skipMany (char ')');
-	   			return (HqlLogicExp subLogOp qry1 qry2) 
-	    --parseHqlRelExp
-	    --(try parseHqlLogicExp) <|> (try parseHqlRelExp) <|> (try parseHqlSubExp) <?> "Valid where clause"
---}	   
+           do whiteSpace
+              skipMany (char '(')
+              qry1 <- parseWhereClause
+              whiteSpace
+              subLogOp <- parseLogicalOp
+              whiteSpace
+              qry2 <- parseWhereClause;
+              skipMany (char ')');
+                                return (HqlLogicExp subLogOp qry1 qry2) 
+            --parseHqlRelExp
+            --(try parseHqlLogicExp) <|> (try parseHqlRelExp) <|> (try parseHqlSubExp) <?> "Valid where clause"
+--}        
 
 
 parseHqlSubExp :: Parser HqlExp
 parseHqlSubExp =
-	do whiteSpace;
-	   colExp <- parseHqlColumnExp;
-	   whiteSpace
-	   relOpType <- parseRelOp
-	   whiteSpace
-	   subOpType <- parseSubOp
-	   whiteSpace
-	   char '('
-	   whiteSpace
-	   subQry <- subSelectStmt
-	   whiteSpace
-	   case subQry of
-    	         Select y -> return (HqlSubExp relOpType subOpType colExp y)
-    	         otherwise -> return HqlEmpty
+        do whiteSpace;
+           colExp <- parseHqlColumnExp;
+           whiteSpace
+           relOpType <- parseRelOp
+           whiteSpace
+           subOpType <- parseSubOp
+           whiteSpace
+           char '('
+           whiteSpace
+           subQry <- subSelectStmt
+           whiteSpace
+           case subQry of
+                 Select y -> return (HqlSubExp relOpType subOpType colExp y)
+                 otherwise -> return HqlEmpty
 
 
 parseHqlRelExp :: Parser HqlExp
 parseHqlRelExp =
-	do whiteSpace;
-	   colExp <- parseHqlColumnExp;
-	   whiteSpace;
-	   relOpType <- parseRelOp;
-	   whiteSpace;
-	   colConst <- parseHqlConstExp;
-	   return (HqlRelExp relOpType colExp colConst )
+        do whiteSpace;
+           colExp <- parseHqlColumnExp;
+           whiteSpace;
+           relOpType <- parseRelOp;
+           whiteSpace;
+           colConst <- parseHqlConstExp;
+           return (HqlRelExp relOpType colExp colConst )
 --return (HqlRelOpExp relOpType colExp colConst)
 
 parseHqlColumnExp :: Parser HqlExp
 parseHqlColumnExp = 
-	do whiteSpace;
-		  colName <- identifier;
-		  whiteSpace;
-		  return (HqlColumnExp colName)
+        do whiteSpace;
+                  colName <- identifier;
+                  whiteSpace;
+                  return (HqlColumnExp colName)
 
 
 parseHqlConstExp :: Parser HqlExp
 parseHqlConstExp = 
-	do    whiteSpace;
-	      x <-  (try parseFloat) <|> (try identifier) <|>  (try parseStringLiteral)  <?> "Some valid value for given column name"
-	      return (HqlConstExp x)
+        do    whiteSpace;
+              x <-  (try parseFloat) <|> (try identifier) <|>  (try parseStringLiteral)  <?> "Some valid value for given column name"
+              return (HqlConstExp x)
        --return (HqlConstExp "'prashant'") 
 
 parseStringLiteral :: Parser String
@@ -283,39 +283,39 @@ parseRelOp =
 
 parseSubOp :: Parser HqlSubOp
 parseSubOp =
-	   (ANY    <$  try(string "any")) <|>
-	   (ANY    <$  try(string "ANY")) <|>
-	   (SOME   <$  try(string "some")) <|>
-	   (SOME   <$  try(string "SOME")) <|>
-	   (ALL    <$  try(string "all")) <|>
-	   (ALL    <$  try(string "ALL")) <?>
-	   "Valid SubQuery operator"
+           (ANY    <$  try(string "any")) <|>
+           (ANY    <$  try(string "ANY")) <|>
+           (SOME   <$  try(string "some")) <|>
+           (SOME   <$  try(string "SOME")) <|>
+           (ALL    <$  try(string "all")) <|>
+           (ALL    <$  try(string "ALL")) <?>
+           "Valid SubQuery operator"
 
 parseLogicalOp :: Parser HqlLogOp
 parseLogicalOp =
-	   (AND    <$  try(string "and")) <|>
-	   (AND    <$  try(string "AND")) <|>
-	   (OR     <$  try(string "or")) <|>
-	   (OR     <$  try(string "OR")) <?>
-	   "Valid SubQuery operator"
+           (AND    <$  try(string "and")) <|>
+           (AND    <$  try(string "AND")) <|>
+           (OR     <$  try(string "or")) <|>
+           (OR     <$  try(string "OR")) <?>
+           "Valid SubQuery operator"
 
 
 subSelectStmt :: Parser HqlQuery
 subSelectStmt =
-	do reserved "select"
-	   whiteSpace
-	   colName <- parseTillFrom []
-	   whiteSpace
-	   --reserved "from"
-	   whiteSpace
-	   tabName <- identifier
-	   whiteSpace
-	   isSemi <- string ")" <|> string "where" <?> "Where keyword or semicolon"
-	   case ((head isSemi) == ')') of 
-	   	    True -> return ( Select (HqlSelectQuery tabName colName HqlEmpty) )
-	   	    False -> do 
-	   	                exp <- parseWhereClause
-	   	                return (Select (HqlSelectQuery tabName colName  exp  ) )
+        do reserved "select"
+           whiteSpace
+           colName <- parseTillFrom []
+           whiteSpace
+           --reserved "from"
+           whiteSpace
+           tabName <- identifier
+           whiteSpace
+           isSemi <- string ")" <|> string "where" <?> "Where keyword or semicolon"
+           case ((head isSemi) == ')') of 
+                    True -> return ( Select (HqlSelectQuery tabName colName HqlEmpty) )
+                    False -> do 
+                                exp <- parseWhereClause
+                                return (Select (HqlSelectQuery tabName colName  exp  ) )
     
 ---------------------------------------------------------------------------------------
 -- insert  Query
@@ -414,22 +414,25 @@ parseTillWhere x y= do whiteSpace
 
 dropStmt :: Parser HqlQuery
 dropStmt = 
-	    do  whiteSpace
-	        reserved "drop"
-	        whiteSpace
-	        reserved "table"
-	        whiteSpace
-	        identifier
-	        whiteSpace
-	        semi
-	        return Drop
+            do  whiteSpace
+                reserved "drop"
+                whiteSpace
+                reserved "table"
+                whiteSpace
+                identifier
+                whiteSpace
+                semi
+                return Drop
 
 
 ---------------------------------------------------------------------------------------
 -- Delete Query
 
 deleteStmt :: Parser HqlQuery
-deleteStmt =
+deleteStmt = (try deleteStmtNoWhere) <|> (try deleteStmtWhere) <?> "Valid delete query"
+
+deleteStmtWhere :: Parser HqlQuery
+deleteStmtWhere =
       do whiteSpace
          reserved "delete"
          whiteSpace
@@ -444,6 +447,16 @@ deleteStmt =
          semi
          return (Delete (HqlDeleteQuery tabName exp )) 
 
+deleteStmtNoWhere =
+             do whiteSpace
+                reserved "delete"
+                whiteSpace
+                reserved "from"
+                whiteSpace
+                tabName <- identifier
+                whiteSpace
+                semi
+                return (Delete (HqlDeleteQuery tabName HqlEmpty))
 
 ---------------------------------------------------------------------------------------
 -- Create Query
@@ -453,38 +466,38 @@ alterStmt = (try alterStmtRename) <|> (try alterStmtAdd) <?> "Valid Alter statem
 
 alterStmtRename :: Parser HqlQuery
 alterStmtRename =
-	        do  whiteSpace
-	            reserved "alter"
-	            whiteSpace
-	            reserved "table"
-	            whiteSpace
-	            tabName <- identifier
-	            whiteSpace
-	            reserved "rename"
-	            whiteSpace
-	            reserved "to"
-	            whiteSpace
-	            newTabName <- identifier
-	            whiteSpace
-	            semi
-	            return Alter
+                do  whiteSpace
+                    reserved "alter"
+                    whiteSpace
+                    reserved "table"
+                    whiteSpace
+                    tabName <- identifier
+                    whiteSpace
+                    reserved "rename"
+                    whiteSpace
+                    reserved "to"
+                    whiteSpace
+                    newTabName <- identifier
+                    whiteSpace
+                    semi
+                    return Alter
 
 
 
 alterStmtAdd :: Parser HqlQuery
 alterStmtAdd =
-	       do  whiteSpace
-	           reserved "alter"
-	           whiteSpace
-	           reserved "table"
-	           whiteSpace
-	           tabName <- identifier
-	           reserved "add"
-	           whiteSpace
-	           reserved "column"
-	           whiteSpace
-	           tabDef <- identifier
-	           whiteSpace
-	           semi
-	           return Alter
+               do  whiteSpace
+                   reserved "alter"
+                   whiteSpace
+                   reserved "table"
+                   whiteSpace
+                   tabName <- identifier
+                   reserved "add"
+                   whiteSpace
+                   reserved "column"
+                   whiteSpace
+                   tabDef <- identifier
+                   whiteSpace
+                   semi
+                   return Alter
 
