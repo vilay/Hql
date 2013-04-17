@@ -136,6 +136,17 @@ returnColumnType tabNam colName  = do
                                           --then return "NoTable"
                                           then fail $ "No Such Table " ++ tabNam ++ " present in database !!!"
                                           else Control.Exception.catch (searchColumn result colName) ( \ ex -> fail $ "Column Name " ++ colName ++ " not present in table " ++ show (ex :: SomeException))
+
+
+returnColumnList :: HqlTable -> IO [HqlColumn]
+returnColumnList tabNam = do
+                            let query = "PRAGMA table_info("++tabNam++");"
+                            result <- execQuickQuery database query []
+                            let stringRow = map (\ y -> (!!) y 1 ) result
+                                colNames = map (\x -> fromSql x :: String) stringRow                            
+                            return colNames
+
+
 {-                                      
 writeExc :: SomeException -> IO String                                          
 writeExc ex = do 
@@ -156,7 +167,7 @@ searchColumn result colName = do
 convertToHqlType :: IO String -> IO HqlType
 convertToHqlType strType = do
                               strType' <- strType
-                              case strType' of
+                              case map toUpper strType' of
                                  "INT"     -> return Int
                                  "VARCHAR" -> return Varchar
                                  "BOOL"    -> return Bool
@@ -164,7 +175,7 @@ convertToHqlType strType = do
                                  otherwise -> return Invalid
                               
 stringToHqlType :: String -> HqlType
-stringToHqlType strType = case strType of
+stringToHqlType strType = case map toUpper strType of
                                  "INT"     -> Int
                                  "VARCHAR" -> Varchar
                                  "BOOL"    -> Bool
@@ -280,7 +291,13 @@ validateType tabName colName types = do
 execHqlInsert :: HqlInsertQuery -> String -> IO Integer
 execHqlInsert hqlInsertQuery query = do
                                        let typeList = map (stringToHqlType.getTypeFromValue) (insValues hqlInsertQuery)                                       
-                                       check <- validateType (insTabName hqlInsertQuery) (insColName hqlInsertQuery) typeList
+                                       cols <- if (insColName hqlInsertQuery == [])
+                                                     then returnColumnList (insTabName hqlInsertQuery)
+                                                     else return $ insColName hqlInsertQuery  
+                                       print cols
+                                       print hqlInsertQuery
+                                       check <- validateType (insTabName hqlInsertQuery) cols typeList              
+                                       --check <- validateType (insTabName hqlInsertQuery) (insColName hqlInsertQuery) typeList
                                        {--let colList = foldl ( \ x y -> x ++ "," ++ y ) ( head colName ) ( tail colName )
                                                    paramList = replicate (length colName) "?"
                                                    valueList  = foldl ( \ x y -> x ++ "," ++ y ) ( head paramList ) ( tail paramList )
