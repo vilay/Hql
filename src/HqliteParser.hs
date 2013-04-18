@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
-module HqlParser where
-import Hql
+module HqliteParser where
+import Hqlite
 
 import Control.Applicative hiding (many, (<|>))
 import Text.Parsec.Combinator

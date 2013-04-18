@@ -24,3 +24,10 @@ Documentation         : Available in the same folder used with the help of haddo
 
 
 Testing.txt           : Cantains some sample test cases fo Type checking and Sql Injection.
+
+How to Run            : cabal install HQLite.cabal
+                        ghci
+                        >:m Hqlite             ( To Import Hqlite Library)
+                        >:m HqliteParser       ( To Import Parser )
+                        >main                  ( To run Parser )
+                        (Enter Sqlite Query) 

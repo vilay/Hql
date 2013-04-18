@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 
 
-module Hql
+module Hqlite
 (
   HqlTable,   
   HqlColumn,
