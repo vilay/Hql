@@ -1,18 +1,21 @@
 name:           Hql
 version:        0.1
-cabal-version:  >=1.2
+cabal-version:  >= 1.2
 build-type:     Simple
 author:         vilay
 data-files:     
-                src/Hql.hs,
-                src/HqlParser.hs,
-                Hql.cabal,
-                Setup.hs,
-                test1.db
+                src/Hql.hs, 
+                src/HqlParser.hs, 
+                Hql.cabal, 
+                info, 
+                poster.pdf, 
+                Setup.hs, 
+                test1.db, 
+                Testing.txt
 
 executable Hql
   hs-source-dirs:  src
-  main-is:         Main.hs
+  main-is:         HqlParser.hs
   build-depends:   
                    base >= 4,
                    HDBC-sqlite3,
@@ -22,6 +25,7 @@ executable Hql
                    parsec,
                    text
   ghc-options:     -Wall
+  other-modules:   Paths_Hql
 
 library 
   build-depends:   base >= 4
@@ -29,8 +33,10 @@ library
   ghc-options:     -Wall
   exposed-modules: 
                    Hql,
-                   HqlParser
+                   HqlParser,
+                   Paths_Hql
   other-modules:   
                    Hql,
-                   HqlParser
+                   HqlParser,
+                   Paths_Hql
 
